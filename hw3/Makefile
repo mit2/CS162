@@ -1,19 +1,46 @@
-SRCS=mm_alloc.c mm_test.c
-EXECUTABLES=malloc_test
+CC = gcc
+FUSE_DIR = lib/fuse
+CFLAGS = -std=gnu99 -g -Wall -I $(FUSE_DIR)/include -D_FILE_OFFSET_BITS=64
+TFLAGS = -DTESTS
 
-CC=gcc
-CFLAGS=-g -Wall
-LDFLAGS=
+LINKFLAGS = -L$(FUSE_DIR)/lib/.libs -lfuse
 
-OBJS=$(SRCS:.c=.o)
+SRCS = $(wildcard *.c)
 
-all: $(EXECUTABLES)
+OBJS = kvfs.o
 
-$(EXECUTABLES): $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $@  
+MAINOBJ = kvmount.o
 
-.c.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+TESTSRCS = $(wildcard tests/*.c)
+TESTOBJS = $(TESTSRCS:.c=.o)
 
+TESTEXE = kvfs_tests
+
+all: fuse $(OBJS) $(MAINOBJ)
+	$(CC) $(OBJS) $(MAINOBJ) $(LINKFLAGS) -o kvfs
+
+fuse: fuse_conf
+	make -C ./lib/fuse
+
+test: $(OBJS) $(TESTOBJS)
+	$(CC) -o $(TESTEXE) $^ $(LINKFLAGS)
+
+check: test
+	./$(TESTEXE)
+
+fuse_conf:
+	cd $(FUSE_DIR); ./configure --prefix=`pwd`
 clean:
-	rm -rf $(EXECUTABLES) $(OBJS)
+	rm -rf *.o fs
+	rm -rf tests/*.o
+	rm -f kvfs
+	rm -f kvfs_tests
+
+really-clean: clean
+	$(MAKE) -C $(FUSE_DIR) clean
+
+reset_fs:
+	fusermount -u test_sandbox
+	rm -rf .superblock
+
+.PHONY: all clean check fuse fuse_conf
