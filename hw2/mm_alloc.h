@@ -9,9 +9,6 @@
 #ifndef _malloc_H_
 #define _malloc_H_
 
- /* Define the block size since the sizeof will be wrong */
-#define BLOCK_SIZE 40
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,12 +24,19 @@ typedef struct s_block *s_block_ptr;
 
 /* block struct */
 struct s_block {
-    size_t size;
     struct s_block *next;
     struct s_block *prev;
     int free;
-    void *ptr;
-    /* A pointer to the allocated block */
+    size_t size;
+
+    /* A pointer to the allocated block. You can use this to access the memory 
+     * after this struct s_block, which would normally be what your mm_malloc()
+     * will return to the user. This being a zero-length array makes it so
+     * sizeof(struct s_block) doesn't include the variable length block.
+     *
+     * Note that zero-length arrays like this are a GCC extension and are not part
+     * of standard C.
+     */
     char data [0];
  };
 

@@ -38,3 +38,11 @@ void mm_free(void* ptr)
 #error Not implemented.
 #endif
 }
+
+/**
+ * Given a pointer to the data member of a struct s_block, return a pointer to
+ * the struct s_block.
+ */
+s_block_ptr get_block(void *ptr) {
+    return (s_block_ptr) ( ((unsigned char*)ptr) - sizeof(struct s_block) )
+}
