@@ -16,11 +16,14 @@ TESTOBJS = $(TESTSRCS:.c=.o)
 
 TESTEXE = kvfs_tests
 
-all: fuse $(OBJS) $(MAINOBJ)
+all: fuse-stamp $(OBJS) $(MAINOBJ)
 	$(CC) $(OBJS) $(MAINOBJ) $(LINKFLAGS) -o kvfs
 
-fuse: fuse_conf
+# We create a file fuse-stamp to remember when/if lib/fuse was built.
+fuse-stamp:
+	cd $(FUSE_DIR); ./configure --prefix=`pwd`
 	make -C ./lib/fuse
+	touch fuse-stamp
 
 test: $(OBJS) $(TESTOBJS)
 	$(CC) -o $(TESTEXE) $^ $(LINKFLAGS)
@@ -28,13 +31,12 @@ test: $(OBJS) $(TESTOBJS)
 check: test
 	./$(TESTEXE)
 
-fuse_conf:
-	cd $(FUSE_DIR); ./configure --prefix=`pwd`
 clean:
 	rm -rf *.o fs
 	rm -rf tests/*.o
 	rm -f kvfs
 	rm -f kvfs_tests
+	rm -f fuse-stamp
 
 really-clean: clean
 	$(MAKE) -C $(FUSE_DIR) clean
