@@ -15,21 +15,3 @@ void launch_process(process *p)
 {
   /** YOUR CODE HERE */
 }
-
-/* Put a process in the foreground. This function assumes that the shell
- * is in interactive mode. If the cont argument is true, send the process
- * group a SIGCONT signal to wake it up.
- */
-void
-put_process_in_foreground (process *p, int cont)
-{
-  /** YOUR CODE HERE */
-}
-
-/* Put a process in the background. If the cont argument is true, send
- * the process group a SIGCONT signal to wake it up. */
-void
-put_process_in_background (process *p, int cont)
-{
-  /** YOUR CODE HERE */
-}
