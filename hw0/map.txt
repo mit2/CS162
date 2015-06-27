@@ -1,0 +1,16 @@
+1. 
+main		: in the .text section
+recur		: in the .text section
+static data	: in the .data section
+
+2.
+stack growing in lower address space direction
+
+3.
+48 byte
+
+4.
+heap growing in higher address space direction
+
+5.
+no

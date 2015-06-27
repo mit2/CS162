@@ -1,0 +1,11 @@
+1.
+elf64-x86-64
+
+2.
+text 000000000040075d
+
+3.
+text 000000000040092e
+
+4.
+no. They are allocated during the runtime

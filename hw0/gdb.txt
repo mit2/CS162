@@ -1,0 +1,17 @@
+1.
+(FILE *) 0x602010
+
+2.
+$3 = {_flags = -72539000, _IO_read_ptr = 0x0, _IO_read_end = 0x0, _IO_read_base = 0x0,
+  _IO_write_base = 0x0, _IO_write_ptr = 0x0, _IO_write_end = 0x0, _IO_buf_base = 0x0,
+  _IO_buf_end = 0x0, _IO_save_base = 0x0, _IO_backup_base = 0x0, _IO_save_end = 0x0,
+  _markers = 0x0, _chain = 0x7ffff7dd41c0 <_IO_2_1_stderr_>, _fileno = 3, _flags2 = 0,
+  _old_offset = 0, _cur_column = 0, _vtable_offset = 0 '\000', _shortbuf = "",
+  _lock = 0x6020f0, _offset = -1, __pad1 = 0x0, __pad2 = 0x602100, __pad3 = 0x0,
+  __pad4 = 0x0, __pad5 = 0, _mode = 0, _unused2 = '\000' <repeats 19 times>}
+
+3.
+(FILE *) 0x7ffff7dd4400 <_IO_2_1_stdout_>
+
+4.
+0x40075d
