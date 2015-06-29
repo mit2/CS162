@@ -130,7 +130,13 @@ int shell (int argc, char *argv[]) {
     fundex = lookup(t[0]); /* Is first token a shell literal */
     if(fundex >= 0) cmd_table[fundex].fun(&t[1]);
     else {
-      fprintf(stdout, "This shell only supports built-ins. Replace this to run programs as commands.\n");
+      pid_t pid = fork();
+      if (pid > 0) {
+        wait(NULL);
+      }
+      else {
+        execvp(t[0], &t[0]);
+      }
     }
     cpwd = get_current_dir_name();
     fprintf(stdout, "%d %s: ", ++lineNum, cpwd);
