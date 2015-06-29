@@ -106,6 +106,44 @@ process* create_process(char* inputString)
 }
 
 
+int startChildProcessWithPathSearch(tok_t *t) {
+  char *paths = getenv("PATH");
+  char *path;
+  int needSearchPath = 1;
+  int didExecuted = 0;
+
+  if (t == NULL || t[0] == NULL || strlen(t[0]) == 0)
+    return -1;
+
+  path = strtok(paths, ":");
+  if (t[0][0] == '/' || (strlen(t[0]) > 2 && strncmp(t[0], "./", 2) == 0))
+    needSearchPath = 0;
+  while (path && needSearchPath) {
+    char *fname = (char *)malloc(strlen(path) + strlen(t[0]) + 2);
+    memset(fname, 0, sizeof(fname));
+    strcpy(fname, path); strcat(fname, "/"); strcat(fname, t[0]);
+    if (access(fname, F_OK) != -1) {  /* the executable file exist */
+      execv(fname, &t[0]);
+      didExecuted = 1;
+      free(fname);
+      break;
+    }
+    free(fname);
+    path = strtok(NULL, ":");
+  }
+  if (!didExecuted) {
+    if (access(t[0], F_OK) != -1) {
+      execv(t[0], &t[0]);
+    }
+    else {
+      printf("Could not find the executable file: %s\n", t[0]);
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
 
 int shell (int argc, char *argv[]) {
   char *s = malloc(INPUT_STRING_SIZE+1);			/* user input string */
@@ -131,11 +169,13 @@ int shell (int argc, char *argv[]) {
     if(fundex >= 0) cmd_table[fundex].fun(&t[1]);
     else {
       pid_t pid = fork();
-      if (pid > 0) {
+      if (pid > 0) {  /* parent process */
         wait(NULL);
       }
-      else {
-        execvp(t[0], &t[0]);
+      else {  /* child process */
+        int ret = startChildProcessWithPathSearch(t);
+        if (ret == -1)
+          exit(-1);
       }
     }
     cpwd = get_current_dir_name();
