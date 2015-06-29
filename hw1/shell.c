@@ -111,6 +111,7 @@ int startChildProcessWithPathSearch(tok_t *t) {
   char *path;
   int needSearchPath = 1;
   int didExecuted = 0;
+  int i = 0;
 
   if (t == NULL || t[0] == NULL || strlen(t[0]) == 0)
     return -1;
@@ -118,6 +119,39 @@ int startChildProcessWithPathSearch(tok_t *t) {
   path = strtok(paths, ":");
   if (t[0][0] == '/' || (strlen(t[0]) > 2 && strncmp(t[0], "./", 2) == 0))
     needSearchPath = 0;
+
+  /* support for input and output redirection */
+  /* Now only support the < and > sign in the last part of a command */
+  for (i = MAXTOKS - 2; i > 0; i--) {
+    if (t[i] && t[i + 1] && strcmp(t[i], "<") == 0) {
+      FILE *inputFile;
+      if (inputFile = fopen(t[i + 1], "r")) {
+        int j = 0;
+        dup2(fileno(inputFile), STDIN_FILENO);
+        fclose(inputFile);
+        for (j = i; j < MAXTOKS - 2; j++)
+          t[j] = t[j + 2];
+        t[j] = NULL;
+        break;
+      }
+    }
+  }
+
+  for (i = MAXTOKS - 2; i > 0; i--) {
+    if (t[i] && t[i + 1] && strcmp(t[i], ">") == 0) {
+      FILE *outputFile;
+      if (outputFile = fopen(t[i + 1], "w")) {
+        int j = 0;
+        dup2(fileno(outputFile), STDOUT_FILENO);
+        fclose(outputFile);
+        for (j = i; j < MAXTOKS - 2; j++)
+          t[j] = t[j + 2];
+        t[j] = NULL;
+        break;
+      }
+    }
+  }
+
   while (path && needSearchPath) {
     char *fname = (char *)malloc(strlen(path) + strlen(t[0]) + 2);
     memset(fname, 0, sizeof(fname));
