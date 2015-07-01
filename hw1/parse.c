@@ -40,6 +40,15 @@ void fprintTok(FILE *ofile, tok_t *t) {
   fprintf(ofile,"\n");
 }
 
+int totalToks(tok_t *toks) {
+  int i = 0;
+  int totalCount = 0;
+  for (i = 0; i < MAXTOKS && toks[i]; i++) {
+    totalCount++;
+  }
+  return totalCount;
+}
+
 /* Locate special processing character */
 int isDirectTok(tok_t *t, char *R) {
   int i;

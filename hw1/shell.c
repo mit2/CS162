@@ -101,34 +101,23 @@ void add_process(process* p)
  */
 process* create_process(char* inputString)
 {
-  /** YOUR CODE HERE */
-  return NULL;
-}
-
-
-int startChildProcessWithPathSearch(tok_t *t) {
-  char *paths = getenv("PATH");
-  char *path;
-  int needSearchPath = 1;
-  int didExecuted = 0;
+  tok_t *t = getToks(inputString);
+  process* procInfo = (process *)malloc(sizeof(process));
   int i = 0;
-
+  
   if (t == NULL || t[0] == NULL || strlen(t[0]) == 0)
-    return -1;
-
-  path = strtok(paths, ":");
-  if (t[0][0] == '/' || (strlen(t[0]) > 2 && strncmp(t[0], "./", 2) == 0))
-    needSearchPath = 0;
+    return NULL;
 
   /* support for input and output redirection */
   /* Now only support the < and > sign in the last part of a command */
+  procInfo->stdin = STDIN_FILENO;
+  procInfo->stdout = STDOUT_FILENO;
   for (i = MAXTOKS - 2; i > 0; i--) {
     if (t[i] && t[i + 1] && strcmp(t[i], "<") == 0) {
       FILE *inputFile;
       if (inputFile = fopen(t[i + 1], "r")) {
         int j = 0;
-        dup2(fileno(inputFile), STDIN_FILENO);
-        fclose(inputFile);
+        procInfo->stdin = fileno(inputFile);
         for (j = i; j < MAXTOKS - 2; j++)
           t[j] = t[j + 2];
         t[j] = NULL;
@@ -142,8 +131,7 @@ int startChildProcessWithPathSearch(tok_t *t) {
       FILE *outputFile;
       if (outputFile = fopen(t[i + 1], "w")) {
         int j = 0;
-        dup2(fileno(outputFile), STDOUT_FILENO);
-        fclose(outputFile);
+        procInfo->stdout = fileno(outputFile);
         for (j = i; j < MAXTOKS - 2; j++)
           t[j] = t[j + 2];
         t[j] = NULL;
@@ -152,32 +140,20 @@ int startChildProcessWithPathSearch(tok_t *t) {
     }
   }
 
-  while (path && needSearchPath) {
-    char *fname = (char *)malloc(strlen(path) + strlen(t[0]) + 2);
-    memset(fname, 0, sizeof(fname));
-    strcpy(fname, path); strcat(fname, "/"); strcat(fname, t[0]);
-    if (access(fname, F_OK) != -1) {  /* the executable file exist */
-      execv(fname, &t[0]);
-      didExecuted = 1;
-      free(fname);
-      break;
-    }
-    free(fname);
-    path = strtok(NULL, ":");
-  }
-  if (!didExecuted) {
-    if (access(t[0], F_OK) != -1) {
-      execv(t[0], &t[0]);
-    }
-    else {
-      printf("Could not find the executable file: %s\n", t[0]);
-      return -1;
-    }
-  }
+  procInfo->argv = t;
+  procInfo->argc = totalToks(t);
+  procInfo->pid = getpid();
+  procInfo->completed = 0;
+  procInfo->stopped = 0;
+  procInfo->background = 0;
+  procInfo->status = 0;
+  //procInfo->tmodes = ;
+  //procInfo->stderr = ;
+  //procInfo->next = ;
+  //procInfo->prev = ;
 
-  return 0;
+  return procInfo;
 }
-
 
 int shell (int argc, char *argv[]) {
   char *s = malloc(INPUT_STRING_SIZE+1);			/* user input string */
@@ -198,6 +174,8 @@ int shell (int argc, char *argv[]) {
   fprintf(stdout, "%d %s: ", lineNum, cpwd);
   free(cpwd);
   while ((s = freadln(stdin))){
+    char *s_copied = malloc(INPUT_STRING_SIZE+1);
+    strcpy(s_copied, s);
     t = getToks(s); /* break the line into tokens */
     fundex = lookup(t[0]); /* Is first token a shell literal */
     if(fundex >= 0) cmd_table[fundex].fun(&t[1]);
@@ -207,8 +185,10 @@ int shell (int argc, char *argv[]) {
         wait(NULL);
       }
       else {  /* child process */
-        int ret = startChildProcessWithPathSearch(t);
-        if (ret == -1)
+        process *p = create_process(s_copied);
+        if (p != NULL)
+          launch_process(p);
+        else
           exit(-1);
       }
     }
