@@ -85,7 +85,6 @@ void init_shell()
     tcsetpgrp(shell_terminal, shell_pgid);
     tcgetattr(shell_terminal, &shell_tmodes);
   }
-  /** YOUR CODE HERE */
 }
 
 /**
@@ -102,9 +101,10 @@ void add_process(process* p)
 process* create_process(char* inputString)
 {
   tok_t *t = getToks(inputString);
+  // TODO: procInfo is not freeed
   process* procInfo = (process *)malloc(sizeof(process));
   int i = 0;
-  
+
   if (t == NULL || t[0] == NULL || strlen(t[0]) == 0)
     return NULL;
 
@@ -142,7 +142,6 @@ process* create_process(char* inputString)
 
   procInfo->argv = t;
   procInfo->argc = totalToks(t);
-  procInfo->pid = getpid();
   procInfo->completed = 0;
   procInfo->stopped = 0;
   procInfo->background = 0;
@@ -180,21 +179,55 @@ int shell (int argc, char *argv[]) {
     fundex = lookup(t[0]); /* Is first token a shell literal */
     if(fundex >= 0) cmd_table[fundex].fun(&t[1]);
     else {
-      pid_t pid = fork();
-      if (pid > 0) {  /* parent process */
-        wait(NULL);
+      process *p = create_process(s_copied);
+      if (p == NULL) {
+        continue;
       }
-      else {  /* child process */
-        process *p = create_process(s_copied);
-        if (p != NULL)
+
+      pid_t pid = fork();
+
+      if (pid > 0) {  /* parent process */
+        struct sigaction new_sa;
+        struct sigaction old_sa;
+        int child_status;
+
+        p->pid = pid;
+        setpgid(pid, pid);
+
+        sigfillset(&new_sa.sa_mask);
+        new_sa.sa_handler = SIG_IGN;
+        new_sa.sa_flags = 0;
+
+        sigaction(SIGTSTP, &new_sa, &old_sa);
+        sigaction(SIGINT, &new_sa, NULL);
+        sigaction(SIGTTOU, &new_sa, NULL);
+
+        tcsetpgrp(STDIN_FILENO, pid);
+        waitpid(WAIT_ANY, &child_status, WUNTRACED);
+        tcsetpgrp(STDIN_FILENO, getpid());
+        pr_exit(child_status);
+
+        new_sa.sa_handler = SIG_DFL;
+        sigaction(SIGTSTP, &new_sa, NULL);
+        sigaction(SIGINT, &new_sa, NULL);
+        sigaction(SIGTTOU, &new_sa, NULL);
+      }
+      else if (pid == 0) {  /* child process */
+        if (p != NULL) {
+          p->pid = getpid();
           launch_process(p);
+        }
         else
           exit(-1);
+      }
+      else {
+        perror("Couldn't spawn a new process");
       }
     }
     cpwd = get_current_dir_name();
     fprintf(stdout, "%d %s: ", ++lineNum, cpwd);
     free(cpwd);
+    free(s_copied);
   }
   return 0;
 }

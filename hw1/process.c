@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <termios.h>
 
@@ -18,15 +19,19 @@ void launch_process(process *p)
   char *path;
   int needSearchPath = 1;
   int didExecuted = 0;
-  int i = 0;
   char **t = p->argv;
-  
+
+  if (setpgid(p->pid, p->pid) < 0) {
+    perror("Couldn't put the child process in its own process group");
+    return;
+  }
+
   dup2(p->stdin, STDIN_FILENO);
   dup2(p->stdout, STDOUT_FILENO);
   if (t[0][0] == '/' || (strlen(t[0]) > 2 && strncmp(t[0], "./", 2) == 0))
     needSearchPath = 0;
-   
-  strcpy(paths_copied, paths); 
+
+  strcpy(paths_copied, paths);
   path = strtok(paths_copied, ":");
 
   while (path && needSearchPath) {
@@ -34,7 +39,7 @@ void launch_process(process *p)
     if (!fname) {
       break;
     }
-    memset(fname, 0, sizeof(fname));
+    memset(fname, 0, strlen(fname));
     strcpy(fname, path); strcat(fname, "/"); strcat(fname, t[0]);
     if (access(fname, F_OK) != -1) {  /* the executable file exist */
       execv(fname, &t[0]);
@@ -56,6 +61,28 @@ void launch_process(process *p)
   }
 
   free(paths_copied);
-  close(p->stdin);
-  close(p->stdout);
+}
+
+/*
+ * http://www.gnu.org/software/libc/manual/html_node/Foreground-and-Background.html
+*/
+void put_process_in_foreground(process *p, int cont) {
+  tcsetpgrp(STDIN_FILENO, p->pid);
+  //tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+}
+
+void pr_exit(int status) {
+  if (WIFEXITED(status))
+    printf("normal termination, exit status = %d\n",
+            WEXITSTATUS(status));
+  else if (WIFSIGNALED(status))
+    printf("abnormal termination, signal number = %d%s\n",
+            WTERMSIG(status),
+  #ifdef WCOREDUMP
+    WCOREDUMP(status) ? " (core file generated)" : "");
+  #else
+    "");
+  #endif
+  else if (WIFSTOPPED(status))
+    printf("child stopped, signal number = %d\n", WSTOPSIG(status));
 }
