@@ -71,6 +71,35 @@ void put_process_in_foreground(process *p, int cont) {
   //tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
 }
 
+int mark_process_status (pid_t pid, int status)
+{
+  process *p;
+  if (pid > 0) {
+    for (p = first_process; p; p = p->next)
+      if (p->pid == pid) {
+        p->status = status;
+        if (WIFSTOPPED(status))
+          p->stopped = 1;
+        else {
+          p->completed = 1;
+          if (WIFSIGNALED(status))
+            fprintf(stderr, "%dd: Terminated by signal %d.\n", (int) pid, WTERMSIG(p->status));
+        }
+        return 0;
+      }
+  }
+  return -1;
+}
+
+int background_processes_completed() {
+  process *p;
+  for (p=first_process; p; p=p->next)
+    if ((!p->completed) && p->background)
+      return 0;
+  return 1;
+}
+
+/*
 void pr_exit(int status) {
   if (WIFEXITED(status))
     printf("normal termination, exit status = %d\n",
@@ -86,3 +115,4 @@ void pr_exit(int status) {
   else if (WIFSTOPPED(status))
     printf("child stopped, signal number = %d\n", WSTOPSIG(status));
 }
+*/
