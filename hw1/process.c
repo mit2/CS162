@@ -15,7 +15,7 @@
 void launch_process(process *p)
 {
   char *paths = getenv("PATH");
-  char *paths_copied = (char *)malloc(strlen(paths) + 1);
+  char *paths_copied = (char *)malloc(strlen(paths) + 1); /* can not call strtok on paths directly. */
   char *path;
   int needSearchPath = 1;
   int didExecuted = 0;
@@ -26,19 +26,19 @@ void launch_process(process *p)
     return;
   }
 
+  /* IO rediction */
   dup2(p->stdin, STDIN_FILENO);
   dup2(p->stdout, STDOUT_FILENO);
+
+  /* Path resolution */
   if (t[0][0] == '/' || (strlen(t[0]) > 2 && strncmp(t[0], "./", 2) == 0))
     needSearchPath = 0;
-
   strcpy(paths_copied, paths);
   path = strtok(paths_copied, ":");
-
   while (path && needSearchPath) {
     char *fname = (char *)malloc(strlen(path) + strlen(t[0]) + 2);
-    if (!fname) {
+    if (!fname)
       break;
-    }
     memset(fname, 0, strlen(fname));
     strcpy(fname, path); strcat(fname, "/"); strcat(fname, t[0]);
     if (access(fname, F_OK) != -1) {  /* the executable file exist */
@@ -51,6 +51,7 @@ void launch_process(process *p)
     path = strtok(NULL, ":");
   }
 
+  /* Execute directly */
   if (!didExecuted) {
     if (access(t[0], F_OK) != -1) {
       execv(t[0], &t[0]);
@@ -67,11 +68,35 @@ void launch_process(process *p)
  * http://www.gnu.org/software/libc/manual/html_node/Foreground-and-Background.html
 */
 void put_process_in_foreground(process *p, int cont) {
+  int status;
+  /* Put the job into the foreground */
   tcsetpgrp(STDIN_FILENO, p->pid);
-  //tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+
+  /* Send the job a continue signal, if necessary. */
+  if (cont) {
+    tcsetattr(STDIN_FILENO, TCSADRAIN, &p->tmodes);
+    if (kill (- p->pid, SIGCONT) < 0)
+      perror("kill (SIGCONT)");
+  }
+
+  /* Wait for it to report. */
+  waitpid(WAIT_ANY, &status, WUNTRACED);
+
+  /* Put the shell back in the foreground. */
+  tcsetpgrp(STDIN_FILENO, first_process->pid);
+
+  /* Restore the shell's terminal modes. */
+  //tcgetattr(STDIN_FILENO, &p->tmodes);
+  //tcsetattr(shell_terminal, TCSADRAIN, &first_process->tmodes);
 }
 
-int mark_process_status (pid_t pid, int status)
+void put_process_in_background(process *p, int cont) {
+  if (cont)
+    if (kill (-p->pid, SIGCONT) < 0)
+      perror("kill (SIGCONT)");
+}
+
+int mark_process_status(pid_t pid, int status)
 {
   process *p;
   if (pid > 0) {
@@ -98,21 +123,3 @@ int background_processes_completed() {
       return 0;
   return 1;
 }
-
-/*
-void pr_exit(int status) {
-  if (WIFEXITED(status))
-    printf("normal termination, exit status = %d\n",
-            WEXITSTATUS(status));
-  else if (WIFSIGNALED(status))
-    printf("abnormal termination, signal number = %d%s\n",
-            WTERMSIG(status),
-  #ifdef WCOREDUMP
-    WCOREDUMP(status) ? " (core file generated)" : "");
-  #else
-    "");
-  #endif
-  else if (WIFSTOPPED(status))
-    printf("child stopped, signal number = %d\n", WSTOPSIG(status));
-}
-*/

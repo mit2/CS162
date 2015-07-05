@@ -11,6 +11,7 @@
 #define FALSE 0
 #define TRUE 1
 #define INPUT_STRING_SIZE 80
+#define PATH_STRING_SIZE 1024
 
 #include "io.h"
 #include "parse.h"
@@ -27,6 +28,7 @@ int cmd_help(tok_t arg[]);
 
 int cmd_cd(tok_t arg[]) {
   chdir(arg[0]);
+  return 1;
 }
 
 int cmd_wait(tok_t arg[]) {
@@ -36,6 +38,39 @@ int cmd_wait(tok_t arg[]) {
     pid = waitpid(WAIT_ANY, &status, WNOHANG | WUNTRACED);
     mark_process_status(pid, status);
   } while(!background_processes_completed());
+  return 1;
+}
+
+int cmd_fg(tok_t arg[]) {
+  pid_t pid;
+  process *p;
+
+  if (arg[0] != NULL)
+    pid = atoi(arg[0]);
+  else
+    pid = -1;
+
+  for(p = first_process; p->next; p = p->next)
+    if (p->pid == pid)
+      break;
+  put_process_in_foreground(p, 0);
+  return 1;
+}
+
+int cmd_bg(tok_t arg[]) {
+  pid_t pid = atoi(arg[0]);
+  process *p;
+
+  if (arg[0] != NULL)
+    pid = atoi(arg[0]);
+  else
+    pid = -1;
+
+  for(p = first_process; p->next; p = p->next)
+    if (p->pid == pid)
+      break;
+  put_process_in_background(p, 0);
+  return 1;
 }
 
 /* Command Lookup table */
@@ -50,7 +85,9 @@ fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_quit, "quit", "quit the command shell"},
   {cmd_cd, "cd", "change current working directory"},
-  {cmd_wait, "wait", "wait all background finished"}
+  {cmd_wait, "wait", "wait all background finished"},
+  {cmd_fg, "fg", "move the process with id pid to the foreground. If pid is not specified, then move the most recently launched process to the foreground."},
+  {cmd_bg, "bg", "move the process with id pid to the background. If pid is not specified, then move the most recently launched process to the background."}
 };
 
 int cmd_help(tok_t arg[]) {
@@ -111,6 +148,7 @@ void init_shell()
     first_process->stopped = 0;
     first_process->completed = 0;
     first_process->background = 0;
+    //tcgetattr(shell_terminal, &first_process->tmodes);
     first_process->stdin = STDIN_FILENO;
     first_process->stdout = STDOUT_FILENO;
     first_process->stderr = STDERR_FILENO;
@@ -161,7 +199,7 @@ process* create_process(tok_t *t)
   for (i = MAXTOKS - 2; i > 0; i--) {
     if (t[i] && t[i + 1] && strcmp(t[i], "<") == 0) {
       FILE *inputFile;
-      if (inputFile = fopen(t[i + 1], "r")) {
+      if ((inputFile = fopen(t[i + 1], "r")) != NULL) {
         int j = 0;
         procInfo->stdin = fileno(inputFile);
         for (j = i; j < MAXTOKS - 2; j++)
@@ -176,7 +214,7 @@ process* create_process(tok_t *t)
   for (i = MAXTOKS - 2; i > 0; i--) {
     if (t[i] && t[i + 1] && strcmp(t[i], ">") == 0) {
       FILE *outputFile;
-      if (outputFile = fopen(t[i + 1], "w")) {
+      if ((outputFile = fopen(t[i + 1], "w")) != NULL) {
         int j = 0;
         procInfo->stdout = fileno(outputFile);
         for (j = i; j < MAXTOKS - 2; j++)
@@ -196,7 +234,7 @@ process* create_process(tok_t *t)
   }
   else if (t[0][strlen(t[0]) - 1] == '&') {
     procInfo->background = 1;
-    t[0][strlen(t[0]) - 1] = NULL;
+    t[0][strlen(t[0]) - 1] = 0;
   }
 
   procInfo->argc = total_toks;
@@ -215,22 +253,20 @@ void update_status (void) {
 
 int shell (int argc, char *argv[]) {
   char *s = malloc(INPUT_STRING_SIZE+1);			/* user input string */
-  char *cpwd;
+  char cpwd[PATH_STRING_SIZE];
   tok_t *t;			/* tokens parsed from input */
   int lineNum = 0;
   int fundex = -1;
   pid_t pid = getpid();		/* get current processes PID */
   pid_t ppid = getppid();	/* get parents PID */
-  pid_t cpid, tcpid, cpgid;
 
   init_shell();
 
   printf("%s running as PID %d under %d\n",argv[0],pid,ppid);
 
   lineNum=0;
-  cpwd = get_current_dir_name();
+  getcwd(cpwd, PATH_STRING_SIZE);
   fprintf(stdout, "%d %s: ", lineNum, cpwd);
-  free(cpwd);
   while ((s = freadln(stdin))){
     t = getToks(s); /* break the line into tokens */
     fundex = lookup(t[0]); /* Is first token a shell literal */
@@ -243,17 +279,13 @@ int shell (int argc, char *argv[]) {
         if (pid > 0) {  /* parent process */
           p->pid = pid;
           setpgid(pid, pid);
-
+          printf("Run process: %s on pid: %d\n", t[0], p->pid);
           if (!p->background) {
-            int child_status;
-            tcsetpgrp(STDIN_FILENO, pid);
-            waitpid(WAIT_ANY, &child_status, WUNTRACED);
-            tcsetpgrp(STDIN_FILENO, getpid());
+            put_process_in_foreground(p, 0);
           }
         }
         else if (pid == 0) {  /* child process */
           if (p != NULL) {
-
             p->pid = getpid();
             launch_process(p);
           }
@@ -267,9 +299,8 @@ int shell (int argc, char *argv[]) {
     }
     update_status();
 
-    cpwd = get_current_dir_name();
+    getcwd(cpwd, PATH_STRING_SIZE);
     fprintf(stdout, "%d %s: ", ++lineNum, cpwd);
-    free(cpwd);
   }
   return 0;
 }

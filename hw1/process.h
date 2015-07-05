@@ -1,6 +1,5 @@
 #ifndef _PROCESS_H_
 #define _PROCESS_H_
-
 #include <signal.h>
 #include <sys/types.h>
 #include <termios.h>
@@ -26,6 +25,7 @@ process* first_process; //pointer to the first process that is launched */
 void launch_process(process* p);
 void put_process_in_background (process* p, int cont);
 void put_process_in_foreground (process* p, int cont);
-void pr_exit(int status);
+int mark_process_status(pid_t pid, int status);
+int background_processes_completed();
 
 #endif
